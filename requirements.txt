@@ -1,3 +1,4 @@
+anthropic
 matplotlib
 plotly
 yfinance
