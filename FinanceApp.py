@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
+import openai
+import anthropic
 
 # Utility Functions
 def get_asset_data(ticker, asset_type, period="1y"):
@@ -102,11 +104,49 @@ def asset_insights():
     else:
         st.info("No assets in the portfolio to analyze.")
 
+def chatbot():
+    st.title("AI Chatbot Assistant")
+    st.write("Chat with an AI assistant powered by either OpenAI or Anthropic.")
+    
+    # Select LLM model
+    model = st.selectbox("Select LLM Model", ["OpenAI", "Anthropic"])
+    user_input = st.text_input("You: ")
+    
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    
+    if st.button("Send"):
+        if user_input:
+            if model == "OpenAI":
+                openai.api_key = "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"  # Replace with your OpenAI API key
+                response = openai.Completion.create(
+                    engine="text-davinci-003",
+                    prompt=user_input,
+                    max_tokens=150
+                )
+                reply = response.choices[0].text.strip()
+            elif model == "Anthropic":
+                client = anthropic.Client(api_key="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")  # Replace with your Anthropic API key
+                response = client.completions.create(
+                    prompt=user_input,
+                    model="claude-v1",
+                    max_tokens_to_sample=150
+                )
+                reply = response.completion.strip()
+            
+            st.session_state.chat_history.append((user_input, reply))
+    
+    # Display chat history
+    for user_msg, bot_reply in st.session_state.chat_history:
+        st.write(f"You: {user_msg}")
+        st.write(f"AI: {bot_reply}")
+
 # Multi-Page Setup
 PAGES = {
     "Home": home,
     "Portfolio Management": portfolio_management,
     "Asset Insights": asset_insights,
+    "AI Chatbot Assistant": chatbot,
 }
 
 def main():
