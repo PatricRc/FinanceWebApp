@@ -3,101 +3,99 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
+from datetime import datetime
 
 # Utility Functions
-def get_stock_data(ticker_symbol, period="1y"):
-    ticker = yf.Ticker(ticker_symbol)
-    data = ticker.history(period=period)
-    info = ticker.info
-    return data, info
+def get_asset_data(ticker, asset_type, period="1y"):
+    """Fetch data for stocks, ETFs, or cryptos."""
+    if asset_type == "Crypto":
+        ticker = f"{ticker}-USD"  # Format for Yahoo Finance crypto tickers
+    data = yf.Ticker(ticker).history(period=period)
+    return data
 
-def generate_scenarios(data, percentage_change=10):
-    """Simulate bullish and bearish scenarios."""
-    bullish = data['Close'] * (1 + percentage_change / 100)
-    bearish = data['Close'] * (1 - percentage_change / 100)
-    return bullish, bearish
-
-def predict_future_prices(data, days=30):
-    """Simple predictive model for future stock prices."""
-    data = data.reset_index()
-    data['Date_Ordinal'] = pd.to_datetime(data['Date']).map(pd.Timestamp.toordinal)
-    X = data[['Date_Ordinal']]
-    y = data['Close']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-    future_dates = [data['Date_Ordinal'].max() + i for i in range(1, days + 1)]
-    future_prices = model.predict(np.array(future_dates).reshape(-1, 1))
-    future_df = pd.DataFrame({'Date': pd.to_datetime(future_dates, origin='unix', unit='D'), 'Predicted Price': future_prices})
-    return future_df
+def calculate_portfolio_performance(portfolio):
+    """Calculate weighted portfolio performance."""
+    portfolio_data = pd.DataFrame()
+    for asset, details in portfolio.items():
+        weight = details['weight']
+        data = get_asset_data(asset, details['type'], period="1y")
+        data['Weighted Close'] = data['Close'] * weight
+        portfolio_data[asset] = data['Weighted Close']
+    portfolio_data['Portfolio Value'] = portfolio_data.sum(axis=1)
+    return portfolio_data
 
 # Streamlit Pages
 def home():
-    st.title("Stock Valuation Dashboard")
-    st.write("Analyze individual stocks or create a portfolio.")
+    st.title("Dynamic Portfolio Management App")
+    st.write("Build and track your portfolio with stocks, ETFs, and cryptocurrencies.")
     st.write("Navigate using the sidebar.")
-    st.write("Data powered by Yahoo Finance and advanced analytics.")
 
-def stock_overview():
-    st.title("Stock Overview")
-    stock = st.text_input("Enter Stock Ticker (e.g., AAPL, TSLA):", "AAPL")
-    period = st.selectbox("Select Time Period", ["1mo", "3mo", "6mo", "1y", "5y", "max"])
-    if st.button("Analyze Stock"):
-        data, info = get_stock_data(stock, period)
-        st.subheader(f"{info['shortName']} ({stock})")
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Close Price'))
-        st.plotly_chart(fig)
-        st.write("Key Metrics")
-        st.json({k: info[k] for k in ['sector', 'industry', 'marketCap', 'forwardPE', 'dividendYield'] if k in info})
-
-def scenario_analysis():
-    st.title("Scenario Analysis")
-    stock = st.text_input("Enter Stock Ticker for Scenario Analysis:", "AAPL")
-    percentage_change = st.slider("Select Scenario Percentage Change (%)", min_value=1, max_value=50, value=10)
-    if st.button("Run Scenarios"):
-        data, _ = get_stock_data(stock, "1y")
-        bullish, bearish = generate_scenarios(data, percentage_change)
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Actual'))
-        fig.add_trace(go.Scatter(x=data.index, y=bullish, mode='lines', name='Bullish Scenario'))
-        fig.add_trace(go.Scatter(x=data.index, y=bearish, mode='lines', name='Bearish Scenario'))
-        st.plotly_chart(fig)
-
-def ai_insights():
-    st.title("AI-Powered Insights")
-    stock = st.text_input("Enter Stock Ticker for AI Predictions:", "AAPL")
-    days = st.slider("Predict Days Ahead:", min_value=1, max_value=60, value=30)
-    if st.button("Predict Future Prices"):
-        data, _ = get_stock_data(stock, "1y")
-        predictions = predict_future_prices(data, days)
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Historical Prices'))
-        fig.add_trace(go.Scatter(x=predictions['Date'], y=predictions['Predicted Price'], mode='lines', name='Predicted Prices'))
-        st.plotly_chart(fig)
-        st.write("Future Price Predictions")
-        st.dataframe(predictions)
-
-def gamification():
-    st.title("Learn Valuation Principles")
-    st.write("Test your understanding of valuation metrics and portfolio management.")
-    question = st.selectbox("Which valuation method calculates the present value of future cash flows?",
-                             options=["P/E Ratio", "DCF (Discounted Cash Flow)", "Net Asset Value"])
-    if st.button("Submit Answer"):
-        if question == "DCF (Discounted Cash Flow)":
-            st.success("Correct! The DCF method calculates the present value of future cash flows.")
+def portfolio_management():
+    st.title("Portfolio Management")
+    
+    # Input for assets
+    st.subheader("Add Assets to Your Portfolio")
+    asset_ticker = st.text_input("Enter Asset Ticker (e.g., AAPL, SPY, BTC):")
+    asset_type = st.selectbox("Select Asset Type", ["Stock", "ETF", "Crypto"])
+    asset_weight = st.slider("Weight in Portfolio (%)", min_value=0, max_value=100, value=0)
+    
+    # Portfolio storage
+    if "portfolio" not in st.session_state:
+        st.session_state.portfolio = {}
+    
+    if st.button("Add Asset"):
+        if asset_ticker and asset_weight > 0:
+            st.session_state.portfolio[asset_ticker.upper()] = {
+                "type": asset_type,
+                "weight": asset_weight / 100
+            }
+            st.success(f"Added {asset_ticker.upper()} as a {asset_type} with {asset_weight}% weight.")
         else:
-            st.error("Incorrect. The correct answer is DCF (Discounted Cash Flow).")
+            st.error("Please enter a valid ticker and weight.")
+    
+    # Show Portfolio
+    st.subheader("Your Portfolio")
+    if st.session_state.portfolio:
+        portfolio_df = pd.DataFrame(st.session_state.portfolio).T
+        portfolio_df["Weight (%)"] = portfolio_df["weight"] * 100
+        st.dataframe(portfolio_df[["type", "Weight (%)"]])
+        
+        # Portfolio performance
+        st.subheader("Portfolio Performance")
+        portfolio_data = calculate_portfolio_performance(st.session_state.portfolio)
+        st.line_chart(portfolio_data['Portfolio Value'])
+    else:
+        st.info("No assets in the portfolio yet. Add assets to see the performance.")
+
+def asset_insights():
+    st.title("Asset Insights")
+    st.write("Get insights for individual assets in your portfolio.")
+    
+    # Select asset from the portfolio
+    if "portfolio" in st.session_state and st.session_state.portfolio:
+        asset = st.selectbox("Select an Asset", list(st.session_state.portfolio.keys()))
+        if asset:
+            asset_details = st.session_state.portfolio[asset]
+            data = get_asset_data(asset, asset_details['type'], period="1y")
+            
+            # Display chart
+            st.subheader(f"Performance of {asset} ({asset_details['type']})")
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Close Price'))
+            st.plotly_chart(fig)
+            
+            # Display key metrics
+            st.write("Key Metrics")
+            st.write(f"- Asset Type: {asset_details['type']}")
+            st.write(f"- Latest Price: ${data['Close'][-1]:.2f}")
+    else:
+        st.info("No assets in the portfolio to analyze.")
 
 # Multi-Page Setup
 PAGES = {
     "Home": home,
-    "Stock Overview": stock_overview,
-    "Scenario Analysis": scenario_analysis,
-    "AI Insights": ai_insights,
-    "Learn Valuation (Gamification)": gamification,
+    "Portfolio Management": portfolio_management,
+    "Asset Insights": asset_insights,
 }
 
 def main():
