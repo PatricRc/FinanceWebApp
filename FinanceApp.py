@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import openai
 import anthropic
+import config  # Import the config file
 
 # Utility Functions
 def get_asset_data(ticker, asset_type, period="1y"):
@@ -118,7 +119,7 @@ def chatbot():
     if st.button("Send"):
         if user_input:
             if model == "OpenAI":
-                openai.api_key = "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"  # Replace with your OpenAI API key
+                openai.api_key = config.OPENAI_API_KEY
                 response = openai.Completion.create(
                     engine="text-davinci-003",
                     prompt=user_input,
@@ -126,7 +127,7 @@ def chatbot():
                 )
                 reply = response.choices[0].text.strip()
             elif model == "Anthropic":
-                client = anthropic.Client(api_key="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")  # Replace with your Anthropic API key
+                client = anthropic.Client(api_key=config.ANTHROPIC_API_KEY)
                 response = client.completions.create(
                     prompt=user_input,
                     model="claude-v1",
@@ -157,4 +158,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
