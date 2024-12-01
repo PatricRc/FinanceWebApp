@@ -45,13 +45,24 @@ def portfolio_management():
     
     if st.button("Add Asset"):
         if asset_ticker and asset_weight > 0:
-            st.session_state.portfolio[asset_ticker.upper()] = {
-                "type": asset_type,
-                "weight": asset_weight / 100
-            }
-            st.success(f"Added {asset_ticker.upper()} as a {asset_type} with {asset_weight}% weight.")
+            if asset_ticker.upper() not in st.session_state.portfolio:
+                st.session_state.portfolio[asset_ticker.upper()] = {
+                    "type": asset_type,
+                    "weight": asset_weight / 100
+                }
+                st.success(f"Added {asset_ticker.upper()} as a {asset_type} with {asset_weight}% weight.")
+            else:
+                st.error(f"Asset {asset_ticker.upper()} is already in your portfolio. Please edit or remove it first.")
         else:
             st.error("Please enter a valid ticker and weight.")
+    
+    # Remove Asset
+    st.subheader("Remove Assets from Your Portfolio")
+    if st.session_state.portfolio:
+        remove_asset = st.selectbox("Select an Asset to Remove", list(st.session_state.portfolio.keys()))
+        if st.button("Remove Asset"):
+            del st.session_state.portfolio[remove_asset]
+            st.success(f"Removed {remove_asset} from your portfolio.")
     
     # Show Portfolio
     st.subheader("Your Portfolio")
@@ -106,3 +117,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
