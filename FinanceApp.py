@@ -152,9 +152,11 @@ def chatbot():
             if model == "OpenAI":
                 openai.api_key = os.getenv("OPENAI_API_KEY")  # Use API key from environment variable
                 response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "system", "content": "You are a financial advisor."},
-                              {"role": "user", "content": prompt}]
+                    model="gpt-4",  # Use a valid model name
+                    messages=[
+                        {"role": "system", "content": "You are a financial advisor."},
+                        {"role": "user", "content": prompt}
+                    ]
                 )
                 reply = response['choices'][0]['message']['content'].strip()
             elif model == "Anthropic":
