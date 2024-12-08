@@ -30,26 +30,13 @@ def calculate_portfolio_performance(portfolio):
     portfolio_data['Portfolio Value'] = portfolio_data.sum(axis=1)
     return portfolio_data
 
-def load_data(uploaded_file):
-    """Load survey data from uploaded file."""
+def chat_with_portfolio(portfolio, input_text, api_key):
+    """Chat with the user's portfolio data using OpenAI."""
     try:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        elif uploaded_file.name.endswith(".xlsx"):
-            df = pd.read_excel(uploaded_file)
-        else:
-            st.error("Unsupported file type.")
-            return None
-        return df
-    except Exception as e:
-        st.error(f"Error loading file: {e}")
-        return None
-
-def chat_with_data(df_chat, input_text, api_key):
-    """Chat with the survey data using OpenAI."""
-    try:
-        # Convert DataFrame to a format suitable for context
-        context = df_chat.to_string(index=False)
+        # Convert portfolio to a DataFrame for context
+        portfolio_df = pd.DataFrame(portfolio).T
+        portfolio_df = portfolio_df.reset_index().rename(columns={"index": "Asset"})
+        context = portfolio_df.to_string(index=False)
 
         # Create a prompt template
         message = f"""
@@ -67,7 +54,7 @@ def chat_with_data(df_chat, input_text, api_key):
         # Initialize OpenAI LLM with model 'gpt-4'
         response = openai.ChatCompletion.create(
             model="gpt-4",
-            messages=[{"role": "system", "content": "You are a data analyst."},
+            messages=[{"role": "system", "content": "You are a portfolio analyst."},
                       {"role": "user", "content": message}]
         )
 
@@ -155,33 +142,35 @@ def asset_insights():
     else:
         st.info("No assets in the portfolio to analyze.")
 
-def chat_with_survey():
-    st.title("💬 Chat with Survey Data")
+def chat_with_portfolio_page():
+    st.title("💬 Chat with Your Portfolio")
 
-    # File upload for survey data
-    uploaded_file = st.file_uploader("Upload the survey Excel or CSV file", type=["xlsx", "csv"])
-    if uploaded_file is not None:
-        df_chat = load_data(uploaded_file)
-        if df_chat is not None:
-            st.success("Survey data loaded successfully.")
-            st.write(df_chat.head())
+    if "portfolio" not in st.session_state or not st.session_state.portfolio:
+        st.warning("Your portfolio is empty. Add assets to your portfolio first.")
+        return
 
-            # Text input for OpenAI API Key
-            api_key = st.text_input("Enter your OpenAI API Key", type="password")
+    # Display portfolio for context
+    st.write("Your current portfolio:")
+    portfolio_df = pd.DataFrame(st.session_state.portfolio).T
+    portfolio_df = portfolio_df.reset_index().rename(columns={"index": "Asset"})
+    st.dataframe(portfolio_df)
 
-            # Enter the query for analysis
-            input_text = st.text_area("Enter your query")
+    # Text input for OpenAI API Key
+    api_key = st.text_input("Enter your OpenAI API Key", type="password")
 
-            # Perform analysis
-            if input_text and api_key and st.button("Chat with data"):
-                chat_with_data(df_chat, input_text, api_key)
+    # Enter the query for analysis
+    input_text = st.text_area("Enter your query")
+
+    # Perform analysis
+    if input_text and api_key and st.button("Chat with Portfolio"):
+        chat_with_portfolio(st.session_state.portfolio, input_text, api_key)
 
 # Multi-Page Setup
 PAGES = {
     "Home": home,
     "Portfolio Management": portfolio_management,
     "Asset Insights": asset_insights,
-    "Chat with Survey Data": chat_with_survey,
+    "Chat with Portfolio": chat_with_portfolio_page,
 }
 
 def main():
