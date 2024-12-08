@@ -30,6 +30,53 @@ def calculate_portfolio_performance(portfolio):
     portfolio_data['Portfolio Value'] = portfolio_data.sum(axis=1)
     return portfolio_data
 
+def load_data(uploaded_file):
+    """Load survey data from uploaded file."""
+    try:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        elif uploaded_file.name.endswith(".xlsx"):
+            df = pd.read_excel(uploaded_file)
+        else:
+            st.error("Unsupported file type.")
+            return None
+        return df
+    except Exception as e:
+        st.error(f"Error loading file: {e}")
+        return None
+
+def chat_with_data(df_chat, input_text, api_key):
+    """Chat with the survey data using OpenAI."""
+    try:
+        # Convert DataFrame to a format suitable for context
+        context = df_chat.to_string(index=False)
+
+        # Create a prompt template
+        message = f"""
+        Answer the following question using the context provided:
+
+        Context:
+        {context}
+
+        Question:
+        {input_text}
+
+        Answer:
+        """
+
+        # Initialize OpenAI LLM with model 'gpt-4'
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "system", "content": "You are a data analyst."},
+                      {"role": "user", "content": message}]
+        )
+
+        # Extract response
+        st.write(response['choices'][0]['message']['content'].strip())
+
+    except openai.error.OpenAIError as e:
+        st.error(f"Error with OpenAI API: {e}")
+
 # Streamlit Pages
 def home():
     st.title("Dynamic Portfolio Management App")
@@ -108,69 +155,33 @@ def asset_insights():
     else:
         st.info("No assets in the portfolio to analyze.")
 
-def chatbot():
-    st.title("AI Chatbot Assistant")
-    st.write("Chat with an AI assistant powered by OpenAI.")
-    
-    user_input = st.text_input("Enter your query:")
-    
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
-    
-    if st.button("Send Query"):
-        if user_input:
-            # Define context based on portfolio data
-            if "portfolio" in st.session_state and st.session_state.portfolio:
-                portfolio_df = pd.DataFrame(st.session_state.portfolio).T
-                context_df = portfolio_df.head(20)  # Take the first 20 rows as context
-                context_text = context_df.to_csv(index=False)
-            else:
-                context_text = "No portfolio data available."
-            
-            prompt = f"""
-            You are a seasoned financial advisor with extensive experience in personal finance, investment strategies, and portfolio management.
-            Below is a sample of portfolio data:
-            {context_text}
+def chat_with_survey():
+    st.title("💬 Chat with Survey Data")
 
-            Given the portfolio data and the following query, provide a concise response with actionable insights:
-            {user_input}
+    # File upload for survey data
+    uploaded_file = st.file_uploader("Upload the survey Excel or CSV file", type=["xlsx", "csv"])
+    if uploaded_file is not None:
+        df_chat = load_data(uploaded_file)
+        if df_chat is not None:
+            st.success("Survey data loaded successfully.")
+            st.write(df_chat.head())
 
-            Additional Tasks:
-            1. Calculate the average weight of assets in the portfolio.
-            2. Identify the asset type (e.g., Stock, ETF, Crypto) with the highest weight allocation.
-            3. Provide one suggestion to optimize the portfolio based on diversification principles.
+            # Text input for OpenAI API Key
+            api_key = st.text_input("Enter your OpenAI API Key", type="password")
 
-            Formatting Instructions for the Response:
-            - Start with a brief summary.
-            - Present calculations or results in a clear list or table format.
-            - Conclude with a concise recommendation based on the analysis.
-            """
-            
-            try:
-                openai.api_key = os.getenv("OPENAI_API_KEY")  # Use API key from environment variable
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "system", "content": "You are a financial advisor."},
-                              {"role": "user", "content": prompt}]
-                )
-                reply = response['choices'][0]['message']['content'].strip()
-            except openai.error.OpenAIError as e:
-                st.error(f"Error with OpenAI API: {e}")
-                return
-            
-            st.session_state.chat_history.append((user_input, reply))
-    
-    # Display chat history
-    for user_msg, bot_reply in st.session_state.chat_history:
-        st.write(f"You: {user_msg}")
-        st.write(f"AI: {bot_reply}")
+            # Enter the query for analysis
+            input_text = st.text_area("Enter your query")
+
+            # Perform analysis
+            if input_text and api_key and st.button("Chat with data"):
+                chat_with_data(df_chat, input_text, api_key)
 
 # Multi-Page Setup
 PAGES = {
     "Home": home,
     "Portfolio Management": portfolio_management,
     "Asset Insights": asset_insights,
-    "AI Chatbot Assistant": chatbot,
+    "Chat with Survey Data": chat_with_survey,
 }
 
 def main():
