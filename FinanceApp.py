@@ -177,20 +177,22 @@ def chat_with_portfolio(portfolio, input_text, api_key):
     except Exception as e:  # Handle all exceptions
         st.error(f"An error occurred: {e}")
 
-
 # Multi-Page Setup
 PAGES = {
     "Home": home,
     "Portfolio Management": portfolio_management,
     "Asset Insights": asset_insights,
-    "Chat with Portfolio": chat_with_portfolio_page,
+    "Chat with Portfolio": chat_with_portfolio_page,  # Ensure function exists
 }
 
 def main():
     st.sidebar.title("Navigation")
     selection = st.sidebar.radio("Go to", list(PAGES.keys()))
-    page = PAGES[selection]
-    page()
+    # Debug message
+    print(f"Selected Page: {selection}")
+    page = PAGES.get(selection)
+    if page:
+        page()
+    else:
+        st.error("Page not found!")
 
-if __name__ == "__main__":
-    main()
