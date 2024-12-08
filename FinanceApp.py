@@ -5,7 +5,6 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
 import openai
-import anthropic
 import os  # Import for environment variables
 from dotenv import load_dotenv  # Import dotenv to load .env file
 
@@ -111,10 +110,8 @@ def asset_insights():
 
 def chatbot():
     st.title("AI Chatbot Assistant")
-    st.write("Chat with an AI assistant powered by either OpenAI or Anthropic.")
+    st.write("Chat with an AI assistant powered by OpenAI.")
     
-    # Select LLM model
-    model = st.selectbox("Select LLM Model", ["OpenAI", "Anthropic"])
     user_input = st.text_input("Enter your query:")
     
     if "chat_history" not in st.session_state:
@@ -149,7 +146,7 @@ def chatbot():
             - Conclude with a concise recommendation based on the analysis.
             """
             
-            if model == "OpenAI":
+            try:
                 openai.api_key = os.getenv("OPENAI_API_KEY")  # Use API key from environment variable
                 response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
@@ -157,14 +154,9 @@ def chatbot():
                               {"role": "user", "content": prompt}]
                 )
                 reply = response['choices'][0]['message']['content'].strip()
-            elif model == "Anthropic":
-                client = anthropic.Client(api_key=os.getenv("ANTHROPIC_API_KEY"))  # Use API key from environment variable
-                response = client.completions.create(
-                    prompt=prompt,
-                    model="claude-v1",
-                    max_tokens_to_sample=150
-                )
-                reply = response.completion.strip()
+            except openai.error.OpenAIError as e:
+                st.error(f"Error with OpenAI API: {e}")
+                return
             
             st.session_state.chat_history.append((user_input, reply))
     
