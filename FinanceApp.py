@@ -142,28 +142,41 @@ def asset_insights():
     else:
         st.info("No assets in the portfolio to analyze.")
 
-def chat_with_portfolio_page():
-    st.title("💬 Chat with Your Portfolio")
+def chat_with_portfolio(portfolio, input_text, api_key):
+    """Chat with the user's portfolio data using OpenAI."""
+    try:
+        # Convert portfolio to a DataFrame for context
+        portfolio_df = pd.DataFrame(portfolio).T
+        portfolio_df = portfolio_df.reset_index().rename(columns={"index": "Asset"})
+        context = portfolio_df.to_string(index=False)
 
-    if "portfolio" not in st.session_state or not st.session_state.portfolio:
-        st.warning("Your portfolio is empty. Add assets to your portfolio first.")
-        return
+        # Create a prompt template
+        message = f"""
+        Answer the following question using the context provided:
 
-    # Display portfolio for context
-    st.write("Your current portfolio:")
-    portfolio_df = pd.DataFrame(st.session_state.portfolio).T
-    portfolio_df = portfolio_df.reset_index().rename(columns={"index": "Asset"})
-    st.dataframe(portfolio_df)
+        Context:
+        {context}
 
-    # Text input for OpenAI API Key
-    api_key = st.text_input("Enter your OpenAI API Key", type="password")
+        Question:
+        {input_text}
 
-    # Enter the query for analysis
-    input_text = st.text_area("Enter your query")
+        Answer:
+        """
 
-    # Perform analysis
-    if input_text and api_key and st.button("Chat with Portfolio"):
-        chat_with_portfolio(st.session_state.portfolio, input_text, api_key)
+        # Initialize OpenAI LLM with model 'gpt-4'
+        openai.api_key = api_key  # Use provided API key
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "system", "content": "You are a portfolio analyst."},
+                      {"role": "user", "content": message}]
+        )
+
+        # Extract response
+        st.write(response['choices'][0]['message']['content'].strip())
+
+    except Exception as e:  # Handle all exceptions
+        st.error(f"An error occurred: {e}")
+
 
 # Multi-Page Setup
 PAGES = {
