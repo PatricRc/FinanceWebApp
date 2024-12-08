@@ -6,7 +6,11 @@ import plotly.graph_objects as go
 from datetime import datetime
 import openai
 import anthropic
-import config  # Import the config file
+import os  # Import for environment variables
+from dotenv import load_dotenv  # Import dotenv to load .env file
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Utility Functions
 def get_asset_data(ticker, asset_type, period="1y"):
@@ -111,25 +115,52 @@ def chatbot():
     
     # Select LLM model
     model = st.selectbox("Select LLM Model", ["OpenAI", "Anthropic"])
-    user_input = st.text_input("You: ")
+    user_input = st.text_input("Enter your query:")
     
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
     
-    if st.button("Send"):
+    if st.button("Send Query"):
         if user_input:
+            # Define context based on portfolio data
+            if "portfolio" in st.session_state and st.session_state.portfolio:
+                portfolio_df = pd.DataFrame(st.session_state.portfolio).T
+                context_df = portfolio_df.head(20)  # Take the first 20 rows as context
+                context_text = context_df.to_csv(index=False)
+            else:
+                context_text = "No portfolio data available."
+            
+            prompt = f"""
+            You are a seasoned financial advisor with extensive experience in personal finance, investment strategies, and portfolio management.
+            Below is a sample of portfolio data:
+            {context_text}
+
+            Given the portfolio data and the following query, provide a concise response with actionable insights:
+            {user_input}
+
+            Additional Tasks:
+            1. Calculate the average weight of assets in the portfolio.
+            2. Identify the asset type (e.g., Stock, ETF, Crypto) with the highest weight allocation.
+            3. Provide one suggestion to optimize the portfolio based on diversification principles.
+
+            Formatting Instructions for the Response:
+            - Start with a brief summary.
+            - Present calculations or results in a clear list or table format.
+            - Conclude with a concise recommendation based on the analysis.
+            """
+            
             if model == "OpenAI":
-                openai.api_key = config.OPENAI_API_KEY
-                response = openai.Completion.create(
-                    engine="text-davinci-003",
-                    prompt=user_input,
-                    max_tokens=150
+                openai.api_key = os.getenv("OPENAI_API_KEY")  # Use API key from environment variable
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "system", "content": "You are a financial advisor."},
+                              {"role": "user", "content": prompt}]
                 )
-                reply = response.choices[0].text.strip()
+                reply = response['choices'][0]['message']['content'].strip()
             elif model == "Anthropic":
-                client = anthropic.Client(api_key=config.ANTHROPIC_API_KEY)
+                client = anthropic.Client(api_key=os.getenv("ANTHROPIC_API_KEY"))  # Use API key from environment variable
                 response = client.completions.create(
-                    prompt=user_input,
+                    prompt=prompt,
                     model="claude-v1",
                     max_tokens_to_sample=150
                 )
